@@ -316,11 +316,17 @@ function canForgetNetwork(network) {
 // `connection edit` editor -- argv is world-readable in /proc, so the secret
 // must never be an argument (printf is a bash builtin, so no process spawns
 // with it either).
+// system-ca-certs is required: without it NetworkManager accepts any
+// RADIUS/auth server certificate, so a rogue AP impersonating the enterprise
+// network can MITM the handshake and capture the MSCHAPv2 response. Validating
+// against the system trust store closes that for any normal enterprise
+// deployment (cert signed by a recognized CA); a private/self-signed internal
+// CA would need its own ca-cert path, which this panel doesn't collect today.
 var enterpriseConnectScript =
   "u=$(uuidgen); IFS= read -r pw;" +
   " nmcli connection add type wifi con-name \"$1\" ssid \"$1\" connection.uuid \"$u\"" +
   " wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2" +
-  " 802-1x.identity \"$2\" 802-1x.auth-timeout 8 >/dev/null" +
+  " 802-1x.identity \"$2\" 802-1x.system-ca-certs yes 802-1x.auth-timeout 8 >/dev/null" +
   " && printf 'set 802-1x.password %s\\nsave\\nquit\\n' \"$pw\" | nmcli connection edit uuid \"$u\" >/dev/null" +
   " && nmcli connection up uuid \"$u\"" +
   " || { nmcli connection delete uuid \"$u\" >/dev/null 2>&1; false; }"
