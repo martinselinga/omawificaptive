@@ -323,12 +323,16 @@ function canForgetNetwork(network) {
 // normal enterprise deployment (cert signed by a recognized CA), but on its
 // own it still accepts a cert from *any* publicly trusted CA -- a rogue AP
 // could present a cheap/free cert for a domain the attacker owns and still
-// pass. $3 is an optional server-domain suffix: when given, it's passed as
-// 802-1x.domain-suffix-match so NetworkManager also checks the presented
-// cert's dNSName/CN against the expected RADIUS server's domain, closing
-// that residual gap. Left blank, behavior is unchanged (CA-only validation).
-// A private/self-signed internal CA would need its own ca-cert path, which
-// this panel doesn't collect today.
+// pass. $3 is the server-domain suffix, passed as 802-1x.domain-suffix-match
+// so NetworkManager also checks the presented cert's dNSName/CN against the
+// expected RADIUS server's domain, closing that residual gap. Panel.qml's
+// enterprise prompt requires this field (connectPwBtn.enabled,
+// submitCredentials()) rather than leaving it optional, since CA-only
+// validation alone still accepts any publicly trusted cert. This script
+// stays tolerant of a blank $3 purely so it degrades safely (no domain
+// check, same as system-ca-certs alone) if ever called another way, not
+// because the UI offers that path. A private/self-signed internal CA would
+// need its own ca-cert path, which this panel doesn't collect today.
 var enterpriseConnectScript =
   "u=$(uuidgen); IFS= read -r pw;" +
   " args=(connection add type wifi con-name \"$1\" ssid \"$1\" connection.uuid \"$u\"" +

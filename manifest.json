@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "martinsel.omawificaptive",
   "name": "OmaWifiCaptive",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "Martin Selinga (@martinselinga)",
   "description": "Wi-Fi bar widget that flags captive portals and color-codes signal strength by encryption, so you know at a glance whether you're on an open network.",
   "license": "MIT",

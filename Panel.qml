@@ -118,11 +118,11 @@ Panel {
   property string passwordSsid: ""
   property string passwordText: ""
   property string identityText: ""
-  // Optional server-domain pin (802-1x.domain-suffix-match). Blank by
-  // default -- most people connecting from this panel won't know their
-  // org's RADIUS server domain offhand -- but filling it in constrains which
-  // certificate the server is allowed to present, closing the gap that
-  // CA-only validation leaves (any publicly-trusted cert still passes).
+  // Required server-domain pin (802-1x.domain-suffix-match) for enterprise
+  // connects. CA-only validation (802-1x.system-ca-certs yes) still accepts
+  // a certificate from any publicly trusted CA, not just the real RADIUS
+  // server, so this is enforced rather than left optional -- see
+  // submitCredentials() and connectPwBtn.enabled.
   property string domainText: ""
 
   // ConnectionFailReason values as a plain object, so Model.js helpers stay
@@ -1721,7 +1721,13 @@ Panel {
     function submitCredentials() {
       if (!net || root.busy || root.passwordText.length === 0) return
       if (!isEnterprise) return root.connectWithPassphrase(net.ssid, root.passwordText)
-      if (root.identityText.length > 0) root.connectEnterprise(net.ssid, root.identityText, root.passwordText, root.domainText)
+      // Server domain is required, not optional: without it NetworkManager
+      // accepts a certificate from any publicly trusted CA, not just the
+      // real RADIUS server, which is the MITM path this prompt exists to
+      // close. Enter-to-submit must enforce the same gate as the button.
+      if (root.identityText.length > 0 && root.domainText.length > 0) {
+        root.connectEnterprise(net.ssid, root.identityText, root.passwordText, root.domainText)
+      }
     }
 
     Connections {
@@ -1962,11 +1968,14 @@ Panel {
         Component.onCompleted: if (visible) Qt.callLater(forceActiveFocus)
       }
 
-      // Optional: pins which server certificate is accepted
-      // (802-1x.domain-suffix-match) on top of the CA-only check above.
-      // Left blank, enterprise connects behave exactly as before -- this
-      // only adds a stronger check for people who know their org's RADIUS
-      // server domain.
+      // Required, not optional: without a pinned server domain,
+      // NetworkManager's CA-only check (802-1x.system-ca-certs yes) still
+      // accepts a certificate from any publicly trusted CA, not just the
+      // real RADIUS server -- a rogue AP presenting a cheap cert for a
+      // domain the attacker owns would still pass. domain-suffix-match
+      // closes that. connectPwBtn.enabled and submitCredentials() both gate
+      // on this being non-empty, so there is no path to an enterprise
+      // connect without it.
       TextField {
         id: domainField
         visible: row.isEnterprise && !row.isBusy && !row.isFailed
@@ -1975,7 +1984,7 @@ Panel {
         anchors.top: idField.bottom
         anchors.topMargin: Style.space(4)
         anchors.rightMargin: Style.space(6)
-        placeholderText: "Server domain (optional, e.g. radius.company.com)"
+        placeholderText: "Server domain (required, e.g. radius.company.com)"
         font.family: Style.font.family
         font.pixelSize: Style.font.body
         foreground: root.bar.foreground
@@ -2046,7 +2055,7 @@ Panel {
         visible: !row.isBusy && !row.isFailed
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        enabled: row.net && pwField.text.length > 0 && (!row.isEnterprise || idField.text.length > 0)
+        enabled: row.net && pwField.text.length > 0 && (!row.isEnterprise || (idField.text.length > 0 && domainField.text.length > 0))
         iconText: "󰄬"
         tooltipText: "Connect"
         foreground: root.bar.foreground

@@ -66,16 +66,17 @@ out to:
   enterprise connection; the password is piped over stdin, never passed as
   an argument. The profile validates the RADIUS/auth server's certificate
   against the system trust store (`802-1x.system-ca-certs yes`), so a
-  self-signed cert (the "accept anything" case) is rejected. That alone
-  still accepts a certificate from *any* publicly trusted CA, though — a
-  rogue AP could present a cheap cert for a domain the attacker owns and
-  still pass. If you know your organization's RADIUS server domain, type it
-  into the optional "Server domain" field when connecting; it's passed as
-  `802-1x.domain-suffix-match`, so NetworkManager also checks that the
-  presented cert actually matches that domain. Left blank, nothing changes
-  from CA-only validation. A private or self-signed internal CA still isn't
-  handled — the panel doesn't collect a custom `ca-cert` path today, so that
-  case needs manual `nmcli` setup.
+  self-signed cert (the "accept anything" case) is rejected — but CA
+  validation alone still accepts a certificate from *any* publicly trusted
+  CA, which would let a rogue AP present a cheap cert for a domain the
+  attacker owns and still pass. To close that, the enterprise connect prompt
+  **requires** a "Server domain" (e.g. `radius.company.com`) before the
+  Connect button enables; it's passed as `802-1x.domain-suffix-match`, so
+  NetworkManager also checks that the presented cert actually matches your
+  organization's domain. There's no way to connect to an enterprise network
+  through this panel without it. A private or self-signed internal CA still
+  isn't handled — the panel doesn't collect a custom `ca-cert` path today, so
+  that case needs manual `nmcli` setup.
 - `wl-copy`, to copy the IP address or gateway to your clipboard when you
   click those fields.
 - Your configured browser, to open `http://neverssl.com` when you click the
