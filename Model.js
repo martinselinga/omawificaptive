@@ -319,14 +319,23 @@ function canForgetNetwork(network) {
 // system-ca-certs is required: without it NetworkManager accepts any
 // RADIUS/auth server certificate, so a rogue AP impersonating the enterprise
 // network can MITM the handshake and capture the MSCHAPv2 response. Validating
-// against the system trust store closes that for any normal enterprise
-// deployment (cert signed by a recognized CA); a private/self-signed internal
-// CA would need its own ca-cert path, which this panel doesn't collect today.
+// against the system trust store closes the "accept anything" hole for any
+// normal enterprise deployment (cert signed by a recognized CA), but on its
+// own it still accepts a cert from *any* publicly trusted CA -- a rogue AP
+// could present a cheap/free cert for a domain the attacker owns and still
+// pass. $3 is an optional server-domain suffix: when given, it's passed as
+// 802-1x.domain-suffix-match so NetworkManager also checks the presented
+// cert's dNSName/CN against the expected RADIUS server's domain, closing
+// that residual gap. Left blank, behavior is unchanged (CA-only validation).
+// A private/self-signed internal CA would need its own ca-cert path, which
+// this panel doesn't collect today.
 var enterpriseConnectScript =
   "u=$(uuidgen); IFS= read -r pw;" +
-  " nmcli connection add type wifi con-name \"$1\" ssid \"$1\" connection.uuid \"$u\"" +
+  " args=(connection add type wifi con-name \"$1\" ssid \"$1\" connection.uuid \"$u\"" +
   " wifi-sec.key-mgmt wpa-eap 802-1x.eap peap 802-1x.phase2-auth mschapv2" +
-  " 802-1x.identity \"$2\" 802-1x.system-ca-certs yes 802-1x.auth-timeout 8 >/dev/null" +
+  " 802-1x.identity \"$2\" 802-1x.system-ca-certs yes 802-1x.auth-timeout 8);" +
+  " [ -n \"$3\" ] && args+=(802-1x.domain-suffix-match \"$3\");" +
+  " nmcli \"${args[@]}\" >/dev/null" +
   " && printf 'set 802-1x.password %s\\nsave\\nquit\\n' \"$pw\" | nmcli connection edit uuid \"$u\" >/dev/null" +
   " && nmcli connection up uuid \"$u\"" +
   " || { nmcli connection delete uuid \"$u\" >/dev/null 2>&1; false; }"

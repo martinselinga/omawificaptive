@@ -26,6 +26,7 @@ Panel {
     passwordSsid = ""
     passwordText = ""
     identityText = ""
+    domainText = ""
   }
 
   // Live connection details from `ip` / /sys / iw.
@@ -117,6 +118,12 @@ Panel {
   property string passwordSsid: ""
   property string passwordText: ""
   property string identityText: ""
+  // Optional server-domain pin (802-1x.domain-suffix-match). Blank by
+  // default -- most people connecting from this panel won't know their
+  // org's RADIUS server domain offhand -- but filling it in constrains which
+  // certificate the server is allowed to present, closing the gap that
+  // CA-only validation leaves (any publicly-trusted cert still passes).
+  property string domainText: ""
 
   // ConnectionFailReason values as a plain object, so Model.js helpers stay
   // pure JS and Node-testable.
@@ -719,6 +726,7 @@ Panel {
     if (passwordSsid !== ssid) {
       passwordText = ""
       identityText = ""
+      domainText = ""
     }
     passwordSsid = ssid
   }
@@ -795,10 +803,10 @@ Panel {
     runNetworkAction("connect", networkForSsid(ssid), function(network) { network.connectWithPsk(passphrase) })
   }
 
-  function connectEnterprise(ssid, identity, passphrase) {
+  function connectEnterprise(ssid, identity, passphrase, domain) {
     runNetworkAction("connect", networkForSsid(ssid), function(network) {
       enterpriseConnect.secret = passphrase
-      enterpriseConnect.command = ["bash", "-c", Model.enterpriseConnectScript, "nmcli-eap", ssid, identity]
+      enterpriseConnect.command = ["bash", "-c", Model.enterpriseConnectScript, "nmcli-eap", ssid, identity, domain || ""]
       enterpriseConnect.running = true
     })
   }
@@ -1713,7 +1721,7 @@ Panel {
     function submitCredentials() {
       if (!net || root.busy || root.passwordText.length === 0) return
       if (!isEnterprise) return root.connectWithPassphrase(net.ssid, root.passwordText)
-      if (root.identityText.length > 0) root.connectEnterprise(net.ssid, root.identityText, root.passwordText)
+      if (root.identityText.length > 0) root.connectEnterprise(net.ssid, root.identityText, root.passwordText, root.domainText)
     }
 
     Connections {
@@ -1925,7 +1933,9 @@ Panel {
       anchors.leftMargin: Style.space(10)
       anchors.rightMargin: Style.space(10)
       anchors.topMargin: Style.space(4)
-      implicitHeight: (idField.visible ? idField.implicitHeight + Style.space(4) : 0) + pwField.implicitHeight + Style.spacing.rowGap
+      implicitHeight: (idField.visible ? idField.implicitHeight + Style.space(4) : 0) +
+        (domainField.visible ? domainField.implicitHeight + Style.space(4) : 0) +
+        pwField.implicitHeight + Style.spacing.rowGap
       height: implicitHeight
 
       TextField {
@@ -1944,12 +1954,39 @@ Panel {
         enabled: !row.isBusy
         text: row.isPasswordOpen ? root.identityText : ""
 
-        onAccepted: pwField.forceActiveFocus()
+        onAccepted: domainField.visible ? domainField.forceActiveFocus() : pwField.forceActiveFocus()
         onTextChanged: if (row.isPasswordOpen && text !== root.identityText) root.identityText = text
         Keys.onEscapePressed: root.cancelPasswordPrompt()
 
         onVisibleChanged: if (visible) Qt.callLater(forceActiveFocus)
         Component.onCompleted: if (visible) Qt.callLater(forceActiveFocus)
+      }
+
+      // Optional: pins which server certificate is accepted
+      // (802-1x.domain-suffix-match) on top of the CA-only check above.
+      // Left blank, enterprise connects behave exactly as before -- this
+      // only adds a stronger check for people who know their org's RADIUS
+      // server domain.
+      TextField {
+        id: domainField
+        visible: row.isEnterprise && !row.isBusy && !row.isFailed
+        anchors.left: parent.left
+        anchors.right: connectPwBtn.left
+        anchors.top: idField.bottom
+        anchors.topMargin: Style.space(4)
+        anchors.rightMargin: Style.space(6)
+        placeholderText: "Server domain (optional, e.g. radius.company.com)"
+        font.family: Style.font.family
+        font.pixelSize: Style.font.body
+        foreground: root.bar.foreground
+        horizontalPadding: Style.spacing.controlGap
+        verticalPadding: Style.spacing.controlPaddingY
+        enabled: !row.isBusy
+        text: row.isPasswordOpen ? root.domainText : ""
+
+        onAccepted: pwField.forceActiveFocus()
+        onTextChanged: if (row.isPasswordOpen && text !== root.domainText) root.domainText = text
+        Keys.onEscapePressed: root.cancelPasswordPrompt()
       }
 
       TextField {
