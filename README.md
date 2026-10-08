@@ -16,6 +16,32 @@ Everything else — the network list, signal bars, DNS switching, Wi-Fi band
 selection, speed test, QR sharing — behaves the same as Omarchy's built-in
 network widget, since that's what this started from.
 
+## Why the captive-portal badge matters
+
+![Captive portal badge mockup](captive_portal_badge_mockup.png)
+*Mockup — not an actual screenshot. Colors and sizing are taken from the
+plugin's own QML and the active theme palette, not invented.*
+
+Hotel, airport, and café Wi-Fi all share the same trick: you join the
+network, the icon goes solid, and nothing still works. That's not your
+connection being broken — it's a captive portal silently intercepting every
+request until you log in through its page, and most browsers and apps give
+you zero indication that's what's happening. You just see "connected" and
+have no idea why nothing loads.
+
+OmaWifiCaptive catches this the moment NetworkManager reports it — a small
+red badge lands on the Wi-Fi icon in your bar as soon as you're behind a
+portal, not after you've already tried and failed to load three pages.
+Click it and you're dropped straight onto `neverssl.com`, the fastest
+reliable way to trigger the portal's real login screen (it's plain HTTP on
+purpose, so the portal can actually intercept and redirect it — most real
+sites are HTTPS now, which portals can't safely hijack, so they just hang
+instead of redirecting you).
+
+No opening a browser, no typing a random URL and waiting to see if it's
+your Wi-Fi or the site that's broken. You see the badge, you click it,
+you're on the login page.
+
 ## Install
 
 Review the repository, then add the plugin:
